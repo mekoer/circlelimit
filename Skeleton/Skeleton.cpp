@@ -98,7 +98,7 @@ class Star {
 	float s;
 
 public:
-	Star() : center(vec3(0, 0)), s(40) {
+	Star() : center(vec3(0, 0)), s(30) {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
 		glEnableVertexAttribArray(0);
@@ -106,37 +106,51 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-		// vertices:
-		vec3 storedPoint;
+		vector<vec3> corners;
 		for (int i = -1; i <= 1; i++) {
 			for (int j = -1; j <= 1; j++) {
 				float x = center.x + (i * 40);
 				float y = center.y + (j * 40);
-				if (i == 0) {
-					if (j == -1) {
-						storedPoint = vec3(x, y, 1);
-					}
-					else if (j == 0) {
-						continue;
-					}
-					else if (j == 1) {
-						vtx.push_back(vec3(x, y, 1));
-					}
+				if (i == 0 || j == 0) {
+					continue;
 				}
-				else if (i == 1) {
-					if (j != 1) {
-						vtx.push_back(vec3(x, -1 * y, 1));
-					}
-					else {
-						vtx.push_back(vec3(x, -1 * y, 1));
-						vtx.push_back(storedPoint);
-					}
+				else if (i == -1) {
+					corners.push_back(vec3(x, y, 1));
 				}
 				else {
-					vtx.push_back(vec3(x, y, 1));
+					corners.push_back(vec3(x, -1 * y, 1));
 				}
 			}
 		}
+
+		vector<vec3> midpoints;
+		vec3 storedPoint;
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				float x = center.x + (i * s);
+				float y = center.y + (j * s);
+				if (i == 0 || j == 0) {
+					if (i == 0 && j == 0) continue;
+					else if (j == 1) {
+						storedPoint = vec3(x, -1 * y, 1);
+					}
+					else if (j == -1) {
+						midpoints.push_back(vec3(x, -1 * y, 1));
+					}
+					else {
+						midpoints.push_back(vec3(x, y, 1));
+					}
+				}
+			}
+		}
+		midpoints.push_back(storedPoint);
+
+		for (int i = 0; i < 4; i++) {
+			vtx.push_back(corners[i]);
+			vtx.push_back(midpoints[i]);
+		}
+
+
 	}
 
 	void draw() {
