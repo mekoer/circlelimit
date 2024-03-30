@@ -39,10 +39,10 @@ const char * const vertexSource = R"(
 	precision highp float;		// normal floats, makes no difference on desktop computers
 
 	uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
-	layout(location = 0) in vec2 vp;	// Varying input: vp = vertex position is expected in attrib array 0
+	layout(location = 0) in vec3 vp;	// Varying input: vp = vertex position is expected in attrib array 0
 
 	void main() {
-		gl_Position = vec4(vp.x, vp.y, 0, 1) * MVP;		// transform vp from modeling space to normalized device space
+		gl_Position = vec4(vp.x, vp.y, vp.z, 1) * MVP;		// transform vp from modeling space to normalized device space
 	}
 )";
 
@@ -59,33 +59,116 @@ const char * const fragmentSource = R"(
 	}
 )";
 
+using namespace std;
 GPUProgram gpuProgram; // vertex and fragment shaders
-unsigned int vao;	   // virtual world on the GPU
+
+class Camera {
+	mat4 P;
+	float size;
+public:
+	Camera() : size(150) {
+		float half = 2 / size;
+		P = ScaleMatrix(vec3(half, half, 1));
+		int location = glGetUniformLocation(gpuProgram.getId(), "MVP");
+		glUniformMatrix4fv(location, 1, GL_TRUE, &P[0][0]);
+	}
+
+	void uploadMx() const {
+		
+	}
+};
+
+class Poincare {
+	vector<vec3> vtx;
+public:
+	Poincare() {
+		
+	}
+
+	void renderToTexture() {
+
+	}
+};
+
+class Star {
+	unsigned int vao, vbo;
+	vector<vec3> vtx;
+
+	vec3 center;
+	float s;
+
+public:
+	Star() : center(vec3(0, 0)), s(40) {
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+		glEnableVertexAttribArray(0);
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+		// vertices:
+		vec3 storedPoint;
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				float x = center.x + (i * 40);
+				float y = center.y + (j * 40);
+				if (i == 0) {
+					if (j == -1) {
+						storedPoint = vec3(x, y, 1);
+					}
+					else if (j == 0) {
+						continue;
+					}
+					else if (j == 1) {
+						vtx.push_back(vec3(x, y, 1));
+					}
+				}
+				else if (i == 1) {
+					if (j != 1) {
+						vtx.push_back(vec3(x, -1 * y, 1));
+					}
+					else {
+						vtx.push_back(vec3(x, -1 * y, 1));
+						vtx.push_back(storedPoint);
+					}
+				}
+				else {
+					vtx.push_back(vec3(x, y, 1));
+				}
+			}
+		}
+	}
+
+	void draw() {
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
+		gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
+		glDrawArrays(GL_LINE_LOOP, 0, vtx.size());
+
+		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
+		gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
+		glDrawArrays(GL_POINTS, 0, vtx.size());
+	}
+};
+
+Camera* camera;
+Star* star;
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-	glGenVertexArrays(1, &vao);	// get 1 vao id
-	glBindVertexArray(vao);		// make it active
+	glLineWidth(3);
+	glPointSize(10);
 
-	unsigned int vbo;		// vertex buffer object
-	glGenBuffers(1, &vbo);	// Generate 1 buffer
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	// Geometry with 24 bytes (6 floats or 3 x 2 coordinates)
-	float vertices[] = { -0.8f, -0.8f, -0.6f, 1.0f, 0.8f, -0.2f };
-	glBufferData(GL_ARRAY_BUFFER, 	// Copy to GPU target
-		sizeof(vertices),  // # bytes
-		vertices,	      	// address
-		GL_STATIC_DRAW);	// we do not change later
-
-	glEnableVertexAttribArray(0);  // AttribArray 0
-	glVertexAttribPointer(0,       // vbo -> AttribArray 0
-		2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
-		0, NULL); 		     // stride, offset: tightly packed
-
-	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
+
+	star = new Star();
+	camera = new Camera();
+	camera->uploadMx();
+	
+	
 }
 
 // Window has become invalid: Redraw
@@ -93,20 +176,7 @@ void onDisplay() {
 	glClearColor(0, 0, 0, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT); // clear frame buffer
 
-	// Set color to (0, 1, 0) = green
-	int location = glGetUniformLocation(gpuProgram.getId(), "color");
-	glUniform3f(location, 0.0f, 1.0f, 0.0f); // 3 floats
-
-	float MVPtransf[4][4] = { 1, 0, 0, 0,    // MVP matrix, 
-							  0, 1, 0, 0,    // row-major!
-							  0, 0, 1, 0,
-							  0, 0, 0, 1 };
-
-	location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-	glUniformMatrix4fv(location, 1, GL_TRUE, &MVPtransf[0][0]);	// Load a 4x4 row-major float matrix to the specified location
-
-	glBindVertexArray(vao);  // Draw call
-	glDrawArrays(GL_TRIANGLES, 0 /*startIdx*/, 3 /*# Elements*/);
+	star->draw();
 
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
