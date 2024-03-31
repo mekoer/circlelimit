@@ -71,47 +71,55 @@ enum Animation {
 };
 Animation animation = PAUSED;
 
+
+// TODO view matrixba a translate
+// forgatasba lehet nem kell a tologatas
 class Camera {
 	mat4 MVP;
 	mat4 P;
-	mat4 Pinv;
-	mat4 modelOrbit;
-	mat4 modelRotate;
+	mat4 V;
+	mat4 animation;
 
 	float size;
-	vec3 center;
-
-	float orbitAngle;
+	vec3 camCenter;
 public:
-	Camera() : size(150), center(vec3(20, 30, 0)), orbitAngle(0) {
+	Camera() : size(300), camCenter(vec3(20, 30, 0)) {
 		float half = 2 / size;
-		mat4 scale = ScaleMatrix(vec3(half, half, 1));
-		mat4 trans = TranslateMatrix(vec3(-1 * center.x, -1 * center.y, 0));
+		P = ScaleMatrix(vec3(half, half, 1));
+		V = TranslateMatrix(vec3(-1 * camCenter.x, -1 * camCenter.y, 0));
 
-		P = trans * scale;
+		MVP = V * P;
 
 		int location = glGetUniformLocation(gpuProgram.getId(), "MVP");
-		glUniformMatrix4fv(location, 1, GL_TRUE, &P[0][0]);
+		glUniformMatrix4fv(location, 1, GL_TRUE, &MVP[0][0]);
 	}
 
 	void orbit(float theta) {
-		orbitAngle += theta;
-		modelOrbit = RotationMatrix(orbitAngle, vec3(0, 0, 1));
+		mat4 transRotPiv = TranslateMatrix(vec3(-50, -30, 0));
+		mat4 rotate = RotationMatrix(theta, vec3(0, 0, 1));
+		mat4 transOrbPiv = TranslateMatrix(vec3(30, 0, 0));
+		mat4 orbit = RotationMatrix(theta, vec3(0, 0, 1));
+		mat4 transBack = TranslateMatrix(vec3(20, 30, 0));
+
+		animation = transRotPiv * rotate * transOrbPiv * orbit * transBack;
+
 		updateMVP();
 	}
 
 	// call this everytime a matrix gets updated
 	void updateMVP() {
-		MVP = modelOrbit * P;
+		MVP = animation * V * P;
 		int location = glGetUniformLocation(gpuProgram.getId(), "MVP");
 		glUniformMatrix4fv(location, 1, GL_TRUE, &MVP[0][0]);
 	}
 
-	void inverse() {
+	void inverse(vec4 point) {
 		mat4 scaleInv = ScaleMatrix(vec3(size / 2, size / 2, size / 2));
-		mat4 transInv = TranslateMatrix(vec3(-1 * center.x, -1 * center.y, 0));
+		mat4 transInv = TranslateMatrix(vec3(camCenter.x, camCenter.y, 0));
 
 		mat4 invP = scaleInv * transInv;
+		vec4 transl = point * invP;
+		cout << transl.x << " " << transl.y << endl;
 	}
 };
 
@@ -176,10 +184,17 @@ public:
 		gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
 		glDrawArrays(GL_POINTS, 0, vtx.size());
 
+		vector<vec3> testpoints;
 		vec3 origin(0, 0, 1);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vec3), &origin, GL_DYNAMIC_DRAW);
-		gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
-		glDrawArrays(GL_POINTS, 0, 1);
+		vec3 starcenter(50, 30, 1);
+		vec3 transorigin(20, 30, 1);
+		testpoints.push_back(origin);
+		testpoints.push_back(starcenter);
+		testpoints.push_back(transorigin);
+
+		glBufferData(GL_ARRAY_BUFFER, testpoints.size() * sizeof(vec3), &testpoints[0], GL_DYNAMIC_DRAW);
+		gpuProgram.setUniform(vec3(0.0f, 1.0f, 0.0f), "color");
+		glDrawArrays(GL_POINTS, 0, testpoints.size());
 	}
 };
 
@@ -211,6 +226,7 @@ void onDisplay() {
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
 
+long startingTime = 0;
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key)
@@ -224,6 +240,7 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		}
 		else {
 			animation = PLAYING;
+			startingTime = glutGet(GLUT_ELAPSED_TIME);
 		}
 		break;
 	}
@@ -250,21 +267,27 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 	switch (button) {
 	case GLUT_LEFT_BUTTON:
 		printf("Mouse click at (%3.2f, %3.2f)\n", cX, cY);
-		//camera->inverse(vec4(cX, cY, 1, 0));
+		camera->inverse(vec4(cX, cY, 1, 0));
 		break;
 	case GLUT_MIDDLE_BUTTON:  break;
 	case GLUT_RIGHT_BUTTON:    break;
 	}
 }
 
+
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
 	if (animation == PLAYING) {
-		long time = glutGet(GLUT_ELAPSED_TIME);
-		if (time % 10 == 0) {
-			float theta = (2 * M_PI) / 10000;
-			camera->orbit(theta);
-			glutPostRedisplay();
-		}
+		long time = glutGet(GLUT_ELAPSED_TIME) - startingTime;
+		//cout << time << endl;
+		float theta = (360.0f / 10.0f) * (time / 1000.0f);
+		//theta = fmodf(theta, 360);
+		theta *= M_PI / 180.0f;
+
+		camera->orbit(theta);
+
+		glutPostRedisplay();
 	}
+		
+	
 }
