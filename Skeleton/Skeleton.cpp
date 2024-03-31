@@ -32,6 +32,9 @@
 // negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
 //=============================================================================================
 #include "framework.h"
+#include "iostream"
+
+
 
 // vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
 const char * const vertexSource = R"(
@@ -60,33 +63,55 @@ const char * const fragmentSource = R"(
 )";
 
 using namespace std;
+
 GPUProgram gpuProgram; // vertex and fragment shaders
 
+enum Animation {
+	PLAYING, PAUSED
+};
+Animation animation = PAUSED;
+
 class Camera {
+	mat4 MVP;
 	mat4 P;
+	mat4 Pinv;
+	mat4 modelOrbit;
+	mat4 modelRotate;
+
 	float size;
+	vec3 center;
+
+	float orbitAngle;
 public:
-	Camera() : size(150) {
+	Camera() : size(150), center(vec3(20, 30, 0)), orbitAngle(0) {
 		float half = 2 / size;
-		P = ScaleMatrix(vec3(half, half, 1));
+		mat4 scale = ScaleMatrix(vec3(half, half, 1));
+		mat4 trans = TranslateMatrix(vec3(-1 * center.x, -1 * center.y, 0));
+
+		P = trans * scale;
+
 		int location = glGetUniformLocation(gpuProgram.getId(), "MVP");
 		glUniformMatrix4fv(location, 1, GL_TRUE, &P[0][0]);
 	}
 
-	void uploadMx() const {
-		
-	}
-};
-
-class Poincare {
-	vector<vec3> vtx;
-public:
-	Poincare() {
-		
+	void orbit(float theta) {
+		orbitAngle += theta;
+		modelOrbit = RotationMatrix(orbitAngle, vec3(0, 0, 1));
+		updateMVP();
 	}
 
-	void renderToTexture() {
+	// call this everytime a matrix gets updated
+	void updateMVP() {
+		MVP = modelOrbit * P;
+		int location = glGetUniformLocation(gpuProgram.getId(), "MVP");
+		glUniformMatrix4fv(location, 1, GL_TRUE, &MVP[0][0]);
+	}
 
+	void inverse() {
+		mat4 scaleInv = ScaleMatrix(vec3(size / 2, size / 2, size / 2));
+		mat4 transInv = TranslateMatrix(vec3(-1 * center.x, -1 * center.y, 0));
+
+		mat4 invP = scaleInv * transInv;
 	}
 };
 
@@ -98,7 +123,7 @@ class Star {
 	float s;
 
 public:
-	Star() : center(vec3(0, 0)), s(30) {
+	Star() : center(vec3(50, 30, 1)), s(30) {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
 		glEnableVertexAttribArray(0);
@@ -107,50 +132,37 @@ public:
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
 		vector<vec3> corners;
+		vector<vec3> midpoints;
+		vec3 storedPoint;
+
 		for (int i = -1; i <= 1; i++) {
 			for (int j = -1; j <= 1; j++) {
 				float x = center.x + (i * 40);
 				float y = center.y + (j * 40);
 				if (i == 0 || j == 0) {
-					continue;
-				}
-				else if (i == -1) {
-					corners.push_back(vec3(x, y, 1));
-				}
-				else {
-					corners.push_back(vec3(x, -1 * y, 1));
-				}
-			}
-		}
-
-		vector<vec3> midpoints;
-		vec3 storedPoint;
-		for (int i = -1; i <= 1; i++) {
-			for (int j = -1; j <= 1; j++) {
-				float x = center.x + (i * s);
-				float y = center.y + (j * s);
-				if (i == 0 || j == 0) {
-					if (i == 0 && j == 0) continue;
-					else if (j == 1) {
-						storedPoint = vec3(x, -1 * y, 1);
-					}
-					else if (j == -1) {
-						midpoints.push_back(vec3(x, -1 * y, 1));
+					if (i == 0 && j == 0) {
+						continue;
 					}
 					else {
+						x = center.x + (i * s);
+						y = center.y + (j * s);
 						midpoints.push_back(vec3(x, y, 1));
 					}
 				}
+				else {
+					corners.push_back(vec3(x, y, 1));
+				}
 			}
 		}
-		midpoints.push_back(storedPoint);
 
-		for (int i = 0; i < 4; i++) {
-			vtx.push_back(corners[i]);
-			vtx.push_back(midpoints[i]);
-		}
-
-
+		vtx.push_back(corners[0]);
+		vtx.push_back(midpoints[0]);
+		vtx.push_back(corners[1]);
+		vtx.push_back(midpoints[2]);
+		vtx.push_back(corners[3]);
+		vtx.push_back(midpoints[3]);
+		vtx.push_back(corners[2]);
+		vtx.push_back(midpoints[1]);
 	}
 
 	void draw() {
@@ -160,9 +172,14 @@ public:
 		gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
 		glDrawArrays(GL_LINE_LOOP, 0, vtx.size());
 
-		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
+		//glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
 		gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
 		glDrawArrays(GL_POINTS, 0, vtx.size());
+
+		vec3 origin(0, 0, 1);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec3), &origin, GL_DYNAMIC_DRAW);
+		gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
+		glDrawArrays(GL_POINTS, 0, 1);
 	}
 };
 
@@ -180,7 +197,6 @@ void onInitialization() {
 
 	star = new Star();
 	camera = new Camera();
-	camera->uploadMx();
 	
 	
 }
@@ -197,7 +213,20 @@ void onDisplay() {
 
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
-	if (key == 'd') glutPostRedisplay();         // if d, invalidate display, i.e. redraw
+	switch (key)
+	{
+	case 'h':
+
+		break;
+	case 'a':
+		if (animation == PLAYING) {
+			animation = PAUSED;
+		}
+		else {
+			animation = PLAYING;
+		}
+		break;
+	}
 }
 
 // Key of ASCII code released
@@ -207,9 +236,9 @@ void onKeyboardUp(unsigned char key, int pX, int pY) {
 // Move mouse with key pressed
 void onMouseMotion(int pX, int pY) {	// pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
 	// Convert to normalized device space
-	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	float cY = 1.0f - 2.0f * pY / windowHeight;
-	printf("Mouse moved to (%3.2f, %3.2f)\n", cX, cY);
+	//float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
+	//float cY = 1.0f - 2.0f * pY / windowHeight;
+	//printf("Mouse moved to (%3.2f, %3.2f)\n", cX, cY);
 }
 
 // Mouse click event
@@ -218,20 +247,24 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
 	float cY = 1.0f - 2.0f * pY / windowHeight;
 
-	char * buttonStat;
-	switch (state) {
-	case GLUT_DOWN: buttonStat = "pressed"; break;
-	case GLUT_UP:   buttonStat = "released"; break;
-	}
-
 	switch (button) {
-	case GLUT_LEFT_BUTTON:   printf("Left button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY);   break;
-	case GLUT_MIDDLE_BUTTON: printf("Middle button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY); break;
-	case GLUT_RIGHT_BUTTON:  printf("Right button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY);  break;
+	case GLUT_LEFT_BUTTON:
+		printf("Mouse click at (%3.2f, %3.2f)\n", cX, cY);
+		//camera->inverse(vec4(cX, cY, 1, 0));
+		break;
+	case GLUT_MIDDLE_BUTTON:  break;
+	case GLUT_RIGHT_BUTTON:    break;
 	}
 }
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
-	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
+	if (animation == PLAYING) {
+		long time = glutGet(GLUT_ELAPSED_TIME);
+		if (time % 10 == 0) {
+			float theta = (2 * M_PI) / 10000;
+			camera->orbit(theta);
+			glutPostRedisplay();
+		}
+	}
 }
