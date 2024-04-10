@@ -71,9 +71,6 @@ enum Animation {
 };
 Animation animation = PAUSED;
 
-
-// TODO view matrixba a translate
-// forgatasba lehet nem kell a tologatas
 class Camera {
 	mat4 MVP;
 	mat4 P;
@@ -83,7 +80,7 @@ class Camera {
 	float size;
 	vec3 camCenter;
 public:
-	Camera() : size(300), camCenter(vec3(20, 30, 0)) {
+	Camera() : size(150), camCenter(vec3(20, 30, 0)) {
 		float half = 2 / size;
 		P = ScaleMatrix(vec3(half, half, 1));
 		V = TranslateMatrix(vec3(-1 * camCenter.x, -1 * camCenter.y, 0));
@@ -131,7 +128,7 @@ class Star {
 	float s;
 
 public:
-	Star() : center(vec3(50, 30, 1)), s(30) {
+	Star() : center(vec3(50, 30, 1)), s(40) {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
 		glEnableVertexAttribArray(0);
@@ -141,7 +138,6 @@ public:
 
 		vector<vec3> corners;
 		vector<vec3> midpoints;
-		vec3 storedPoint;
 
 		for (int i = -1; i <= 1; i++) {
 			for (int j = -1; j <= 1; j++) {
@@ -163,6 +159,7 @@ public:
 			}
 		}
 
+		vtx.push_back(vec3(center.x, center.y, center.z));
 		vtx.push_back(corners[0]);
 		vtx.push_back(midpoints[0]);
 		vtx.push_back(corners[1]);
@@ -171,19 +168,60 @@ public:
 		vtx.push_back(midpoints[3]);
 		vtx.push_back(corners[2]);
 		vtx.push_back(midpoints[1]);
+		vtx.push_back(corners[0]);
+	}
+
+	void addToSval(float incr) {
+		s += incr;
+		vtx.clear();
+
+		vector<vec3> corners;
+		vector<vec3> midpoints;
+
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				float x = center.x + (i * 40);
+				float y = center.y + (j * 40);
+				if (i == 0 || j == 0) {
+					if (i == 0 && j == 0) {
+						continue;
+					}
+					else {
+						x = center.x + (i * s);
+						y = center.y + (j * s);
+						midpoints.push_back(vec3(x, y, 1));
+					}
+				}
+				else {
+					corners.push_back(vec3(x, y, 1));
+				}
+			}
+		}
+
+		vtx.push_back(vec3(center.x, center.y, center.z));
+		vtx.push_back(corners[0]);
+		vtx.push_back(midpoints[0]);
+		vtx.push_back(corners[1]);
+		vtx.push_back(midpoints[2]);
+		vtx.push_back(corners[3]);
+		vtx.push_back(midpoints[3]);
+		vtx.push_back(corners[2]);
+		vtx.push_back(midpoints[1]);
+		vtx.push_back(corners[0]);
 	}
 
 	void draw() {
 		glBindVertexArray(vao);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_STATIC_DRAW);
 		gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
-		glDrawArrays(GL_LINE_LOOP, 0, vtx.size());
+		glDrawArrays(GL_TRIANGLE_FAN, 0, vtx.size());
 
 		//glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
 		gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
 		glDrawArrays(GL_POINTS, 0, vtx.size());
 
+		//teszt
 		vector<vec3> testpoints;
 		vec3 origin(0, 0, 1);
 		vec3 starcenter(50, 30, 1);
@@ -192,14 +230,60 @@ public:
 		testpoints.push_back(starcenter);
 		testpoints.push_back(transorigin);
 
-		glBufferData(GL_ARRAY_BUFFER, testpoints.size() * sizeof(vec3), &testpoints[0], GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, testpoints.size() * sizeof(vec3), &testpoints[0], GL_STATIC_DRAW);
 		gpuProgram.setUniform(vec3(0.0f, 1.0f, 0.0f), "color");
 		glDrawArrays(GL_POINTS, 0, testpoints.size());
 	}
 };
 
+class Poincare {
+	unsigned int texture;
+	vector<vec4> texIm;
+	vector<vec2> circles;
+public:
+	Poincare() {
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		// generate
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_UNSIGNED_BYTE, &texIm[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+	float lorentz(vec3 v1, vec3 v2) {
+		return v1.x * v2.x + v1.y * v2.y - v1.z * v2.z;
+	}
+
+	void genPlaceholderTex() {
+		for (int i = 0; i < 300; i++) {
+			for (int j = 0; j < 300; j++) {
+				if (i / 10 == 0 && j / 10 == 0) {
+					texIm.push_back(vec4(1.0f, 1.0f, 1.0f, 1.0f));
+				}
+				else
+					texIm.push_back(vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			}
+		}
+	}
+
+	void lineHyperb(float sine, float cosine) {
+		// v0 = (cos(phi), sin(phi), 0)
+		// 
+		// P pont d tavolsagra: P = (0, 0, 1) * cosh(d) + v0 * sinh(d)
+		// P-hez iranyvektor:	(P + (0, 0, 1) * sinh(d) + v0 * cosh(d)) - P
+		// erre meroleges: v.cross(0, 0, 1)
+
+
+	}
+};
+
 Camera* camera;
 Star* star;
+Poincare* poincare;
 
 // Initialization, create an OpenGL context
 void onInitialization() {
@@ -212,7 +296,7 @@ void onInitialization() {
 
 	star = new Star();
 	camera = new Camera();
-	
+	//poincare = new Poincare();
 	
 }
 
@@ -232,7 +316,8 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key)
 	{
 	case 'h':
-
+		star->addToSval(-10);
+		glutPostRedisplay();
 		break;
 	case 'a':
 		if (animation == PLAYING) {
