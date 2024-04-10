@@ -43,8 +43,12 @@ const char * const vertexSource = R"(
 
 	uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
 	layout(location = 0) in vec3 vp;	// Varying input: vp = vertex position is expected in attrib array 0
+	layout(location = 1) in vec3 vertexUV;
+
+	out vec3 texCoord;
 
 	void main() {
+		texCoord = vertexUV;
 		gl_Position = vec4(vp.x, vp.y, vp.z, 1) * MVP;		// transform vp from modeling space to normalized device space
 	}
 )";
@@ -53,6 +57,8 @@ const char * const vertexSource = R"(
 const char * const fragmentSource = R"(
 	#version 330			// Shader 3.3
 	precision highp float;	// normal floats, makes no difference on desktop computers
+
+	uniform sampler2D textureUnit;
 	
 	uniform vec3 color;		// uniform variable, the color of the primitive
 	out vec4 outColor;		// computed color of the current pixel
@@ -128,6 +134,7 @@ class Star {
 	float s;
 
 public:
+	// TODO: vertexuv textura terbeli pontjait is feltolteni a kettes slotba
 	Star() : center(vec3(50, 30, 1)), s(40) {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
@@ -246,6 +253,7 @@ public:
 		glBindTexture(GL_TEXTURE_2D, texture);
 
 		// generate
+		genPlaceholderTex();
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_UNSIGNED_BYTE, &texIm[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
