@@ -43,9 +43,9 @@ const char * const vertexSource = R"(
 
 	uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
 	layout(location = 0) in vec3 vp;	// Varying input: vp = vertex position is expected in attrib array 0
-	layout(location = 1) in vec3 vertexUV;
+	layout(location = 1) in vec2 vertexUV;
 
-	out vec3 texCoord;
+	out vec2 texCoord;
 
 	void main() {
 		texCoord = vertexUV;
@@ -58,13 +58,13 @@ const char * const fragmentSource = R"(
 	#version 330			// Shader 3.3
 	precision highp float;	// normal floats, makes no difference on desktop computers
 
-	uniform sampler2D textureUnit;
-	
-	uniform vec3 color;		// uniform variable, the color of the primitive
-	out vec4 outColor;		// computed color of the current pixel
+	uniform sampler2D samplerUnit;
+
+	in vec2 texCoord;
+	out vec4 fragmentColor;		// computed color of the current pixel
 
 	void main() {
-		outColor = vec4(color, 1);	// computed color is the color of the primitive
+		fragmentColor = texture(samplerUnit, texCoord);	// computed color is the color of the primitive
 	}
 )";
 
@@ -127,8 +127,9 @@ public:
 };
 
 class Star {
-	unsigned int vao, vbo;
+	unsigned int vao, vboStar, vboTexCoord;
 	vector<vec3> vtx;
+	vector<vec2> texUV;
 
 	vec3 center;
 	float s;
@@ -138,47 +139,21 @@ public:
 	Star() : center(vec3(50, 30, 1)), s(40) {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
+
 		glEnableVertexAttribArray(0);
-		glGenBuffers(1, &vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glGenBuffers(1, &vboStar);
+		glBindBuffer(GL_ARRAY_BUFFER, vboStar);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-		vector<vec3> corners;
-		vector<vec3> midpoints;
+		glEnableVertexAttribArray(1);
+		glGenBuffers(1, &vboTexCoord);
+		glBindBuffer(GL_ARRAY_BUFFER, vboTexCoord);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
-		for (int i = -1; i <= 1; i++) {
-			for (int j = -1; j <= 1; j++) {
-				float x = center.x + (i * 40);
-				float y = center.y + (j * 40);
-				if (i == 0 || j == 0) {
-					if (i == 0 && j == 0) {
-						continue;
-					}
-					else {
-						x = center.x + (i * s);
-						y = center.y + (j * s);
-						midpoints.push_back(vec3(x, y, 1));
-					}
-				}
-				else {
-					corners.push_back(vec3(x, y, 1));
-				}
-			}
-		}
-
-		vtx.push_back(vec3(center.x, center.y, center.z));
-		vtx.push_back(corners[0]);
-		vtx.push_back(midpoints[0]);
-		vtx.push_back(corners[1]);
-		vtx.push_back(midpoints[2]);
-		vtx.push_back(corners[3]);
-		vtx.push_back(midpoints[3]);
-		vtx.push_back(corners[2]);
-		vtx.push_back(midpoints[1]);
-		vtx.push_back(corners[0]);
+		generate(0);
 	}
 
-	void addToSval(float incr) {
+	void generate(float incr) {
 		s += incr;
 		vtx.clear();
 
@@ -206,30 +181,53 @@ public:
 		}
 
 		vtx.push_back(vec3(center.x, center.y, center.z));
+		texUV.push_back(vec2(0.5f, 0.5f));
+
 		vtx.push_back(corners[0]);
+		texUV.push_back(vec2(0.0f, 0.0f));
+
 		vtx.push_back(midpoints[0]);
+		texUV.push_back(vec2(0.0f, 0.5f));
+
 		vtx.push_back(corners[1]);
+		texUV.push_back(vec2(0.0f, 1.0f));
+
 		vtx.push_back(midpoints[2]);
+		texUV.push_back(vec2(0.5f, 1.0f));
+
 		vtx.push_back(corners[3]);
+		texUV.push_back(vec2(1.0f, 1.0f));
+
 		vtx.push_back(midpoints[3]);
+		texUV.push_back(vec2(1.0f, 0.5f));
+
 		vtx.push_back(corners[2]);
+		texUV.push_back(vec2(1.0f, 0.0f));
+
 		vtx.push_back(midpoints[1]);
+		texUV.push_back(vec2(0.5f, 0.0f));
+
 		vtx.push_back(corners[0]);
+		texUV.push_back(vec2(0.0f, 0.0f));
 	}
 
 	void draw() {
-		glBindVertexArray(vao);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		
+
+		glBindBuffer(GL_ARRAY_BUFFER, vboStar);
 		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_STATIC_DRAW);
-		gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
+		//gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
 		glDrawArrays(GL_TRIANGLE_FAN, 0, vtx.size());
 
+		glBindBuffer(GL_ARRAY_BUFFER, vboTexCoord);
+		glBufferData(GL_ARRAY_BUFFER, texUV.size() * sizeof(vec3), &texUV[0], GL_STATIC_DRAW);
+
 		//glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
-		gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
-		glDrawArrays(GL_POINTS, 0, vtx.size());
+		//gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
+		//glDrawArrays(GL_POINTS, 0, vtx.size());
 
 		//teszt
-		vector<vec3> testpoints;
+		/*vector<vec3> testpoints;
 		vec3 origin(0, 0, 1);
 		vec3 starcenter(50, 30, 1);
 		vec3 transorigin(20, 30, 1);
@@ -239,7 +237,7 @@ public:
 
 		glBufferData(GL_ARRAY_BUFFER, testpoints.size() * sizeof(vec3), &testpoints[0], GL_STATIC_DRAW);
 		gpuProgram.setUniform(vec3(0.0f, 1.0f, 0.0f), "color");
-		glDrawArrays(GL_POINTS, 0, testpoints.size());
+		glDrawArrays(GL_POINTS, 0, testpoints.size());*/
 	}
 };
 
@@ -252,30 +250,33 @@ public:
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
 
-		// generate
+		// 300x300 teljesen piros
 		genPlaceholderTex();
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_UNSIGNED_BYTE, &texIm[0]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_FLOAT, &texIm[0]);
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	}
 
-	float lorentz(vec3 v1, vec3 v2) {
-		return v1.x * v2.x + v1.y * v2.y - v1.z * v2.z;
+		int sampler = 0;
+		int location = glGetUniformLocation(gpuProgram.getId(), "samplerUnit");
+		glUniform1i(location, sampler);
+
+		glActiveTexture(GL_TEXTURE0 + sampler);
 	}
 
 	void genPlaceholderTex() {
 		for (int i = 0; i < 300; i++) {
 			for (int j = 0; j < 300; j++) {
-				if (i / 10 == 0 && j / 10 == 0) {
-					texIm.push_back(vec4(1.0f, 1.0f, 1.0f, 1.0f));
-				}
-				else
-					texIm.push_back(vec4(0.0f, 0.0f, 0.0f, 1.0f));
+				texIm.push_back(vec4(1.0f, 0.0f, 0.0f, 1.0f));
 			}
 		}
+	}
+
+	float lorentz(vec3 v1, vec3 v2) {
+		return v1.x * v2.x + v1.y * v2.y - v1.z * v2.z;
 	}
 
 	void lineHyperb(float sine, float cosine) {
@@ -300,11 +301,12 @@ void onInitialization() {
 	glLineWidth(3);
 	glPointSize(10);
 
-	gpuProgram.create(vertexSource, fragmentSource, "outColor");
+	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
 
+	poincare = new Poincare();
 	star = new Star();
 	camera = new Camera();
-	//poincare = new Poincare();
+	
 	
 }
 
@@ -324,7 +326,11 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key)
 	{
 	case 'h':
-		star->addToSval(-10);
+		star->generate(-10);
+		glutPostRedisplay();
+		break;
+	case 'H':
+		star->generate(10);
 		glutPostRedisplay();
 		break;
 	case 'a':
