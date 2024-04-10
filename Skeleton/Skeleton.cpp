@@ -244,14 +244,14 @@ public:
 class Poincare {
 	unsigned int texture;
 	vector<vec4> texIm;
-	vector<vec2> circles;
+	vector<vec4> circles;
 public:
 	Poincare() {
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
 
-		// 300x300 teljesen piros
-		genPlaceholderTex();
+		// placeholder textura teszteles
+		genPlaceholderTex();		
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_FLOAT, &texIm[0]);
 
@@ -268,24 +268,82 @@ public:
 	}
 
 	void genPlaceholderTex() {
-		for (int i = 0; i < 300; i++) {
-			for (int j = 0; j < 300; j++) {
-				texIm.push_back(vec4(1.0f, 0.0f, 0.0f, 1.0f));
+		const int width = 300;
+		const int height = 300;
+		const vec4 black(0, 0, 0, 1);
+		const vec4 white(1, 0, 1, 1);
+		const int cellw = 300 / 10;
+
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				if ((x / cellw + y / cellw) % 2 == 0) {
+					texIm.push_back(white);
+				}
+				else {
+					texIm.push_back(black);
+				}
 			}
 		}
 	}
 
-	float lorentz(vec3 v1, vec3 v2) {
-		return v1.x * v2.x + v1.y * v2.y - v1.z * v2.z;
+	void genPoincareTexture(int w = 300, int h = 300) {
+		for (int i = 0; i < w; i++) {
+			for (int j = 0; j < h; j++) {
+				int circlecounter = 0;
+				// (x - h)^2 + (y - k)^2 <= r^2
+
+				// TODO
+				// for ciklus a korokon iteralasra, mindenhol a fenti keplet szerint check
+				// ha egysegkoron kivul -> fekete
+				// ha paros kor tagja -> sarga
+				//ha paratlan kor tagja -> kek
+			}
+		}
 	}
 
-	void lineHyperb(float sine, float cosine) {
-		// v0 = (cos(phi), sin(phi), 0)
-		// 
-		// P pont d tavolsagra: P = (0, 0, 1) * cosh(d) + v0 * sinh(d)
-		// P-hez iranyvektor:	(P + (0, 0, 1) * sinh(d) + v0 * cosh(d)) - P
-		// erre meroleges: v.cross(0, 0, 1)
+	void generateCircles() {
+		for (int i = 0; i < 360; i += 40) {
+			float phi = i * (M_PI / 180.0f);
 
+			// v0 = (cos(phi), sin(phi), 0) -> "iranyvektor"
+			vec3 v0(cosf(phi), sinf(phi), 0);
+
+			vector<vec3> poincarePoints = generatePoincarePoints(v0);
+
+
+			for (int j = 0; j < poincarePoints.size(); j++) {
+				// P -> poincare pont v0 menten
+				// Q -> koriv atellenes pontja
+				// |OP| * |OQ| = 1
+				// |OQ| = 1 / |OP| -> Q tavolsaga O-tol
+				vec3 P = poincarePoints.back();
+				vec3 op = P;
+				float opabs = length(op);
+				float oqabs = 1 / (opabs);
+				// v0 = (cos(phi), sin(phi), 0) -> iranyvektor, normalizalni kell, aztan * |OQ|
+				vec3 Q = v0 * oqabs;
+				// r = |PQ| / 2
+				// center = ((P.x + Q.x) / 2, (P.y + Q.y) / 2)
+				vec3 PQ = Q - P;
+				float radius = length(PQ) / 2;
+				vec3 center((P.x + Q.x) / 2, (P.y + Q.y) / 2, 0);
+				circles.push_back(vec4(center.x, center.y, center.z, radius));
+			}
+		}
+	}
+
+	vector<vec3>& generatePoincarePoints(vec3 v0) {
+		vector<vec3> poincarePoints;
+
+		// 0.5, 1.5, 2.5, 3.5, 4.5, 5.5 P pontokat transzformaljuk
+		for (float d = 0.5f; d <= 5.5f; d += 1.0f) {
+			// P pont = (0,0,1) * cosh(d) + v0 * sinh(d)
+			vec3 hp = vec3(0, 0, 1) * coshf(d) + v0 * sinhf(d);
+
+			// (px / pz+1), (py / pz+1) a diszken
+			vec3 pp(hp.x / (hp.z + 1), hp.y / (hp.z + 1), 0);
+			poincarePoints.push_back(pp);
+		}
 
 	}
 };
@@ -350,12 +408,7 @@ void onKeyboardUp(unsigned char key, int pX, int pY) {
 }
 
 // Move mouse with key pressed
-void onMouseMotion(int pX, int pY) {	// pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-	// Convert to normalized device space
-	//float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	//float cY = 1.0f - 2.0f * pY / windowHeight;
-	//printf("Mouse moved to (%3.2f, %3.2f)\n", cX, cY);
-}
+void onMouseMotion(int pX, int pY) {}
 
 // Mouse click event
 void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
@@ -378,9 +431,7 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 void onIdle() {
 	if (animation == PLAYING) {
 		long time = glutGet(GLUT_ELAPSED_TIME) - startingTime;
-		//cout << time << endl;
 		float theta = (360.0f / 10.0f) * (time / 1000.0f);
-		//theta = fmodf(theta, 360);
 		theta *= M_PI / 180.0f;
 
 		camera->orbit(theta);
