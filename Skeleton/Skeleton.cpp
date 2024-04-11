@@ -217,8 +217,6 @@ public:
 	}
 
 	void draw() {
-		
-
 		glBindBuffer(GL_ARRAY_BUFFER, vboStar);
 		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_STATIC_DRAW);
 		//gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
@@ -258,7 +256,7 @@ public:
 		glBindTexture(GL_TEXTURE_2D, texture);
 
 		// placeholder textura teszteles
-		//genPlaceholderTex();		
+		//genPlaceholderTex();
 		genPoincareTexture();
 	}
 
@@ -414,15 +412,14 @@ Poincare* poincare;
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-
 	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
 
-	
 	star = new Star();
 	poincare = new Poincare();
+	
 	camera = new Camera();
 	
-	
+	star->draw();
 }
 
 // Window has become invalid: Redraw
@@ -441,6 +438,7 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key)
 	{
 	case 'h':
+		cout << "decrease h" << endl;
 		star->generate(-10);
 		glutPostRedisplay();
 		break;
@@ -449,24 +447,29 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		glutPostRedisplay();
 		break;
 	case 't':
+		cout << "set to nearest" << endl;
 		filtering = NEAREST;
 		poincare->genPoincareTexture();
 		break;
 	case 'T':
+		cout << "set to linear" << endl;
 		filtering = LINEAR;
 		poincare->genPoincareTexture();
 		break;
 	case 'r':
+		cout << "decrease tex" << endl;
 		if (poincare->getTextureRes() > 100) {
 			poincare->incrTextureRes(-100);
 		}
 		break;
 	case 'R':
+		cout << "increase tex" << endl;
 		if (poincare->getTextureRes() < 500) {
 			poincare->incrTextureRes(100);
 		}
 		break;
 	case 'a':
+		cout << "play animation" << endl;
 		if (animation == PLAYING) {
 			animation = PAUSED;
 		}
