@@ -260,25 +260,6 @@ public:
 		// placeholder textura teszteles
 		//genPlaceholderTex();		
 		genPoincareTexture();
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_FLOAT, &texIm[0]);
-
-		if (filtering == LINEAR) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		}
-		if (filtering == NEAREST) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		}
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		int sampler = 0;
-		int location = glGetUniformLocation(gpuProgram.getId(), "samplerUnit");
-		glUniform1i(location, sampler);
-
-		glActiveTexture(GL_TEXTURE0 + sampler);
 	}
 
 	/*void genPlaceholderTex() {
@@ -301,6 +282,9 @@ public:
 	}*/
 
 	void genPoincareTexture() {
+		texIm.clear();
+		circles.clear();
+
 		int w = textureRes;
 		int h = textureRes;
 
@@ -310,8 +294,8 @@ public:
 			for (int j = -1 * h / 2; j < h / 2; j++) {
 				int circlecounter = 0;
 				// normalizalas
-				float x = (float)i / 150;
-				float y = (float)j / 150;
+				float x = (float)i / ((float)w / 2.0f);
+				float y = (float)j / ((float)h / 2.0f);
 				vec2 normalized(x, y);
 
 				// (x - h)^2 + (y - k)^2 <= r^2
@@ -344,6 +328,26 @@ public:
 				}
 			}
 		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_FLOAT, &texIm[0]);
+
+		if (filtering == LINEAR) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+		if (filtering == NEAREST) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		}
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		int sampler = 0;
+		int location = glGetUniformLocation(gpuProgram.getId(), "samplerUnit");
+		glUniform1i(location, sampler);
+
+		glActiveTexture(GL_TEXTURE0 + sampler);
 	}
 
 	void generateCircles() {
@@ -398,6 +402,7 @@ public:
 	void incrTextureRes(int incr) {
 		textureRes += incr;
 		genPoincareTexture();
+		glutPostRedisplay();
 	}
 };
 
@@ -409,13 +414,12 @@ Poincare* poincare;
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-	glLineWidth(3);
-	glPointSize(10);
 
 	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
 
-	poincare = new Poincare();
+	
 	star = new Star();
+	poincare = new Poincare();
 	camera = new Camera();
 	
 	
@@ -443,6 +447,24 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	case 'H':
 		star->generate(10);
 		glutPostRedisplay();
+		break;
+	case 't':
+		filtering = NEAREST;
+		poincare->genPoincareTexture();
+		break;
+	case 'T':
+		filtering = LINEAR;
+		poincare->genPoincareTexture();
+		break;
+	case 'r':
+		if (poincare->getTextureRes() > 100) {
+			poincare->incrTextureRes(-100);
+		}
+		break;
+	case 'R':
+		if (poincare->getTextureRes() < 500) {
+			poincare->incrTextureRes(100);
+		}
 		break;
 	case 'a':
 		if (animation == PLAYING) {
