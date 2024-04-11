@@ -449,11 +449,13 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		cout << "set to nearest" << endl;
 		filtering = NEAREST;
 		poincare->genPoincareTexture();
+		glutPostRedisplay();
 		break;
 	case 'T':
 		cout << "set to linear" << endl;
 		filtering = LINEAR;
 		poincare->genPoincareTexture();
+		glutPostRedisplay();
 		break;
 	case 'r':
 		cout << "decrease tex" << endl;
