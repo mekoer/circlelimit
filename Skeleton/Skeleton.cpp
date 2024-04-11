@@ -77,6 +77,11 @@ enum Animation {
 };
 Animation animation = PAUSED;
 
+enum Filtering {
+	LINEAR, NEAREST
+};
+Filtering filtering = LINEAR;
+
 class Camera {
 	mat4 MVP;
 	mat4 P;
@@ -245,8 +250,10 @@ class Poincare {
 	unsigned int texture;
 	vector<vec4> texIm;
 	vector<vec4> circles;
+
+	int textureRes;
 public:
-	Poincare() {
+	Poincare() : textureRes(300) {
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
 
@@ -256,8 +263,14 @@ public:
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_FLOAT, &texIm[0]);
 
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		if (filtering == LINEAR) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+		if (filtering == NEAREST) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -268,7 +281,7 @@ public:
 		glActiveTexture(GL_TEXTURE0 + sampler);
 	}
 
-	void genPlaceholderTex() {
+	/*void genPlaceholderTex() {
 		const int width = 300;
 		const int height = 300;
 		const vec4 black(0, 0, 0, 1);
@@ -285,16 +298,17 @@ public:
 				}
 			}
 		}
-	}
+	}*/
 
-	void genPoincareTexture(int w = 300, int h = 300) {
+	void genPoincareTexture() {
+		int w = textureRes;
+		int h = textureRes;
+
 		generateCircles();
+
 		for (int i = -1 * w / 2; i < w / 2; i++) {
 			for (int j = -1 * h / 2; j < h / 2; j++) {
 				int circlecounter = 0;
-				// TODO
-				
-
 				// normalizalas
 				float x = (float)i / 150;
 				float y = (float)j / 150;
@@ -375,6 +389,15 @@ public:
 			poincarePoints.push_back(pp);
 		}
 		return poincarePoints;
+	}
+
+	int getTextureRes() const {
+		return textureRes;
+	}
+
+	void incrTextureRes(int incr) {
+		textureRes += incr;
+		genPoincareTexture();
 	}
 };
 
