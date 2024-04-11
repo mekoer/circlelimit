@@ -251,7 +251,8 @@ public:
 		glBindTexture(GL_TEXTURE_2D, texture);
 
 		// placeholder textura teszteles
-		genPlaceholderTex();		
+		//genPlaceholderTex();		
+		genPoincareTexture();
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 300, 300, 0, GL_RGBA, GL_FLOAT, &texIm[0]);
 
@@ -287,16 +288,46 @@ public:
 	}
 
 	void genPoincareTexture(int w = 300, int h = 300) {
-		for (int i = 0; i < w; i++) {
-			for (int j = 0; j < h; j++) {
+		generateCircles();
+		for (int i = -1 * w / 2; i < w / 2; i++) {
+			for (int j = -1 * h / 2; j < h / 2; j++) {
 				int circlecounter = 0;
+				// TODO
+				
+
+				// normalizalas
+				float x = (float)i / 150;
+				float y = (float)j / 150;
+				vec2 normalized(x, y);
+
 				// (x - h)^2 + (y - k)^2 <= r^2
 
-				// TODO
-				// for ciklus a korokon iteralasra, mindenhol a fenti keplet szerint check
 				// ha egysegkoron kivul -> fekete
+				float unitc = powf((x - 0), 2) + powf((y - 0), 2);
+				if (unitc > 1) {
+					texIm.push_back(vec4(0, 0, 0, 1));
+					continue;
+				}
+				//else texIm.push_back(vec4(1, 1, 1, 1));
+
+				// for ciklus a korokon iteralasra, mindenhol a fenti keplet szerint check
+				for (int k = 0; k < circles.size(); k++) {
+					float left = powf((x - circles[k].x), 2) + powf((y - circles[k].y), 2);
+					float right = powf(circles[k].w, 2);
+
+					if (left > right) {
+						circlecounter++;
+					}
+				}
+				
 				// ha paros kor tagja -> sarga
+				if (circlecounter % 2 == 0) {
+					texIm.push_back(vec4(1, 1, 0, 1));
+				}
 				//ha paratlan kor tagja -> kek
+				else {
+					texIm.push_back(vec4(0, 0, 1, 1));
+				}
 			}
 		}
 	}
@@ -310,13 +341,12 @@ public:
 
 			vector<vec3> poincarePoints = generatePoincarePoints(v0);
 
-
 			for (int j = 0; j < poincarePoints.size(); j++) {
 				// P -> poincare pont v0 menten
 				// Q -> koriv atellenes pontja
 				// |OP| * |OQ| = 1
 				// |OQ| = 1 / |OP| -> Q tavolsaga O-tol
-				vec3 P = poincarePoints.back();
+				vec3 P = poincarePoints[j];
 				vec3 op = P;
 				float opabs = length(op);
 				float oqabs = 1 / (opabs);
@@ -332,7 +362,7 @@ public:
 		}
 	}
 
-	vector<vec3>& generatePoincarePoints(vec3 v0) {
+	vector<vec3> generatePoincarePoints(vec3 v0) {
 		vector<vec3> poincarePoints;
 
 		// 0.5, 1.5, 2.5, 3.5, 4.5, 5.5 P pontokat transzformaljuk
@@ -344,7 +374,7 @@ public:
 			vec3 pp(hp.x / (hp.z + 1), hp.y / (hp.z + 1), 0);
 			poincarePoints.push_back(pp);
 		}
-
+		return poincarePoints;
 	}
 };
 
