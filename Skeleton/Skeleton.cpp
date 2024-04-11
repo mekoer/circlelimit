@@ -31,10 +31,9 @@
 // Tudomasul veszem, hogy a forrasmegjeloles kotelmenek megsertese eseten a hazifeladatra adhato pontokat
 // negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
 //=============================================================================================
+
 #include "framework.h"
 #include "iostream"
-
-
 
 // vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
 const char * const vertexSource = R"(
@@ -70,7 +69,7 @@ const char * const fragmentSource = R"(
 
 using namespace std;
 
-GPUProgram gpuProgram; // vertex and fragment shaders
+GPUProgram gpuProgram;
 
 enum Animation {
 	PLAYING, PAUSED
@@ -114,20 +113,10 @@ public:
 		updateMVP();
 	}
 
-	// call this everytime a matrix gets updated
 	void updateMVP() {
 		MVP = animation * V * P;
 		int location = glGetUniformLocation(gpuProgram.getId(), "MVP");
 		glUniformMatrix4fv(location, 1, GL_TRUE, &MVP[0][0]);
-	}
-
-	void inverse(vec4 point) {
-		mat4 scaleInv = ScaleMatrix(vec3(size / 2, size / 2, size / 2));
-		mat4 transInv = TranslateMatrix(vec3(camCenter.x, camCenter.y, 0));
-
-		mat4 invP = scaleInv * transInv;
-		vec4 transl = point * invP;
-		cout << transl.x << " " << transl.y << endl;
 	}
 };
 
@@ -138,9 +127,7 @@ class Star {
 
 	vec3 center;
 	float s;
-
 public:
-	// TODO: vertexuv textura terbeli pontjait is feltolteni a kettes slotba
 	Star() : center(vec3(50, 30, 1)), s(40) {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
@@ -219,28 +206,10 @@ public:
 	void draw() {
 		glBindBuffer(GL_ARRAY_BUFFER, vboStar);
 		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_STATIC_DRAW);
-		//gpuProgram.setUniform(vec3(0.0f, 1.0f, 1.0f), "color");
 		glDrawArrays(GL_TRIANGLE_FAN, 0, vtx.size());
 
 		glBindBuffer(GL_ARRAY_BUFFER, vboTexCoord);
 		glBufferData(GL_ARRAY_BUFFER, texUV.size() * sizeof(vec3), &texUV[0], GL_STATIC_DRAW);
-
-		//glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
-		//gpuProgram.setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
-		//glDrawArrays(GL_POINTS, 0, vtx.size());
-
-		//teszt
-		/*vector<vec3> testpoints;
-		vec3 origin(0, 0, 1);
-		vec3 starcenter(50, 30, 1);
-		vec3 transorigin(20, 30, 1);
-		testpoints.push_back(origin);
-		testpoints.push_back(starcenter);
-		testpoints.push_back(transorigin);
-
-		glBufferData(GL_ARRAY_BUFFER, testpoints.size() * sizeof(vec3), &testpoints[0], GL_STATIC_DRAW);
-		gpuProgram.setUniform(vec3(0.0f, 1.0f, 0.0f), "color");
-		glDrawArrays(GL_POINTS, 0, testpoints.size());*/
 	}
 };
 
@@ -254,30 +223,8 @@ public:
 	Poincare() : textureRes(300) {
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
-
-		// placeholder textura teszteles
-		//genPlaceholderTex();
 		genPoincareTexture();
 	}
-
-	/*void genPlaceholderTex() {
-		const int width = 300;
-		const int height = 300;
-		const vec4 black(0, 0, 0, 1);
-		const vec4 white(1, 0, 1, 1);
-		const int cellw = 300 / 10;
-
-		for (int y = 0; y < height; ++y) {
-			for (int x = 0; x < width; ++x) {
-				if ((x / cellw + y / cellw) % 2 == 0) {
-					texIm.push_back(white);
-				}
-				else {
-					texIm.push_back(black);
-				}
-			}
-		}
-	}*/
 
 	void genPoincareTexture() {
 		texIm.clear();
@@ -291,35 +238,27 @@ public:
 		for (int i = -1 * w / 2; i < w / 2; i++) {
 			for (int j = -1 * h / 2; j < h / 2; j++) {
 				int circlecounter = 0;
-				// normalizalas
+
 				float x = (float)j / ((float)w / 2.0f);
 				float y = (float)i / ((float)h / 2.0f);
 
-				// (x - h)^2 + (y - k)^2 <= r^2
-
-				// ha egysegkoron kivul -> fekete
 				float unitc = powf((x - 0), 2) + powf((y - 0), 2);
 				if (unitc > 1) {
 					texIm.push_back(vec4(0, 0, 0, 1));
 					continue;
 				}
-				//else texIm.push_back(vec4(1, 1, 1, 1));
 
-				// for ciklus a korokon iteralasra, mindenhol a fenti keplet szerint check
 				for (int k = 0; k < circles.size(); k++) {
 					float left = powf((x - circles[k].x), 2) + powf((y - circles[k].y), 2);
 					float right = powf(circles[k].w, 2);
-
 					if (left > right) {
 						circlecounter++;
 					}
 				}
 				
-				// ha paros kor tagja -> sarga
 				if (circlecounter % 2 == 0) {
 					texIm.push_back(vec4(1, 1, 0, 1));
 				}
-				//ha paratlan kor tagja -> kek
 				else {
 					texIm.push_back(vec4(0, 0, 1, 1));
 				}
@@ -347,45 +286,40 @@ public:
 		glActiveTexture(GL_TEXTURE0 + sampler);
 	}
 
+	// matek alapok a nemhivatalos konzi alapjan
 	void generateCircles() {
 		for (int i = 0; i < 360; i += 40) {
 			float phi = i * (M_PI / 180.0f);
 
-			// v0 = (cos(phi), sin(phi), 0) -> "iranyvektor"
 			vec3 v0(cosf(phi), sinf(phi), 0);
 
 			vector<vec3> poincarePoints = generatePoincarePoints(v0);
 
 			for (int j = 0; j < poincarePoints.size(); j++) {
-				// P -> poincare pont v0 menten
-				// Q -> koriv atellenes pontja
-				// |OP| * |OQ| = 1
-				// |OQ| = 1 / |OP| -> Q tavolsaga O-tol
 				vec3 P = poincarePoints[j];
 				vec3 op = P;
+
 				float opabs = length(op);
 				float oqabs = 1 / (opabs);
-				// v0 = (cos(phi), sin(phi), 0) -> iranyvektor, normalizalni kell, aztan * |OQ|
+
 				vec3 Q = v0 * oqabs;
-				// r = |PQ| / 2
-				// center = ((P.x + Q.x) / 2, (P.y + Q.y) / 2)
 				vec3 PQ = Q - P;
+
 				float radius = length(PQ) / 2;
 				vec3 center((P.x + Q.x) / 2, (P.y + Q.y) / 2, 0);
+
 				circles.push_back(vec4(center.x, center.y, center.z, radius));
 			}
 		}
 	}
 
+	// matek alapok a nemhivatalos konzi alapjan
 	vector<vec3> generatePoincarePoints(vec3 v0) {
 		vector<vec3> poincarePoints;
 
-		// 0.5, 1.5, 2.5, 3.5, 4.5, 5.5 P pontokat transzformaljuk
 		for (float d = 0.5f; d <= 5.5f; d += 1.0f) {
-			// P pont = (0,0,1) * cosh(d) + v0 * sinh(d)
 			vec3 hp = vec3(0, 0, 1) * coshf(d) + v0 * sinhf(d);
 
-			// (px / pz+1), (py / pz+1) a diszken
 			vec3 pp(hp.x / (hp.z + 1), hp.y / (hp.z + 1), 0);
 			poincarePoints.push_back(pp);
 		}
@@ -423,7 +357,7 @@ void onInitialization() {
 
 // Window has become invalid: Redraw
 void onDisplay() {
-	glClearColor(0, 0, 0, 0);     // background color
+	glClearColor(0, 0, 0, 1);     // background color
 	glClear(GL_COLOR_BUFFER_BIT); // clear frame buffer
 
 	star->draw();
@@ -437,7 +371,6 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key)
 	{
 	case 'h':
-		cout << "decrease h" << endl;
 		star->generate(-10);
 		glutPostRedisplay();
 		break;
@@ -446,65 +379,41 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		glutPostRedisplay();
 		break;
 	case 't':
-		cout << "set to nearest" << endl;
 		filtering = NEAREST;
 		poincare->genPoincareTexture();
 		glutPostRedisplay();
 		break;
 	case 'T':
-		cout << "set to linear" << endl;
 		filtering = LINEAR;
 		poincare->genPoincareTexture();
 		glutPostRedisplay();
 		break;
 	case 'r':
-		cout << "decrease tex" << endl;
 		if (poincare->getTextureRes() > 100) {
 			poincare->incrTextureRes(-100);
 		}
 		break;
 	case 'R':
-		cout << "increase tex" << endl;
 		if (poincare->getTextureRes() < 500) {
 			poincare->incrTextureRes(100);
 		}
 		break;
 	case 'a':
-		cout << "play animation" << endl;
 		if (animation == PLAYING) {
 			animation = PAUSED;
-		}
-		else {
-			animation = PLAYING;
-			startingTime = glutGet(GLUT_ELAPSED_TIME);
 		}
 		break;
 	}
 }
 
 // Key of ASCII code released
-void onKeyboardUp(unsigned char key, int pX, int pY) {
-}
+void onKeyboardUp(unsigned char key, int pX, int pY) {}
 
 // Move mouse with key pressed
 void onMouseMotion(int pX, int pY) {}
 
 // Mouse click event
-void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-	// Convert to normalized device space
-	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	float cY = 1.0f - 2.0f * pY / windowHeight;
-
-	switch (button) {
-	case GLUT_LEFT_BUTTON:
-		printf("Mouse click at (%3.2f, %3.2f)\n", cX, cY);
-		camera->inverse(vec4(cX, cY, 1, 0));
-		break;
-	case GLUT_MIDDLE_BUTTON:  break;
-	case GLUT_RIGHT_BUTTON:    break;
-	}
-}
-
+void onMouse(int button, int state, int pX, int pY) {}
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
@@ -517,6 +426,4 @@ void onIdle() {
 
 		glutPostRedisplay();
 	}
-		
-	
 }
