@@ -292,9 +292,8 @@ public:
 			for (int j = -1 * h / 2; j < h / 2; j++) {
 				int circlecounter = 0;
 				// normalizalas
-				float x = (float)i / ((float)w / 2.0f);
-				float y = (float)j / ((float)h / 2.0f);
-				vec2 normalized(x, y);
+				float x = (float)j / ((float)w / 2.0f);
+				float y = (float)i / ((float)h / 2.0f);
 
 				// (x - h)^2 + (y - k)^2 <= r^2
 
