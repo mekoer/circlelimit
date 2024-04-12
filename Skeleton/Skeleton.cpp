@@ -366,6 +366,7 @@ void onDisplay() {
 }
 
 long startingTime = 0;
+
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key)
@@ -399,9 +400,8 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		}
 		break;
 	case 'a':
-		if (animation == PLAYING) {
-			animation = PAUSED;
-		}
+		animation = PLAYING;
+		startingTime = glutGet(GLUT_ELAPSED_TIME);
 		break;
 	}
 }
